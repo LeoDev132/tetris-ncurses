@@ -10,6 +10,18 @@ enum PIECE_ID
 	S
 };
 
+enum COLOR_ID
+{
+	UNUSED,
+	RED,
+	BLUE,
+	GREEN,
+	MAGENTA,
+	YELLOW,
+	BLACK,
+	WHITE
+};
+
 struct Piece
 {
 	int id;
@@ -21,7 +33,7 @@ struct Piece
 
 void drawSquare(WINDOW* window, int x, int y, int colorIndex)
 {
-	wmove(window, y, x*2);
+	wmove(window, y+1, (x+1)*2);
 	waddch(window, 'o' | COLOR_PAIR(colorIndex));
 	waddch(window, 'o' | COLOR_PAIR(colorIndex));
 }
@@ -36,6 +48,8 @@ void drawPiece(WINDOW* window, int x, int y, int rot, struct Piece piece, int cl
 	{
 		if(1<<i & piece.shape)
 			drawSquare(window, x+i%piece.size, y+i/piece.size, clear ? 7 : piece.colorPairIndex);
+		else
+			drawSquare(window, x+i%piece.size, y+i/piece.size, clear ? 7 : piece.colorPairIndex-1);
 	}
 }
 
@@ -85,10 +99,10 @@ int checkCollision(struct Piece piece, int* grid, int x, int y)
 		{
 			int squareX = i%piece.size;
 			int squareY = i/piece.size;
-			if(grid[x+y*10+squareX + squareY*piece.size] != 0)
+			if(grid[x+y*10+squareX + squareY*10] != 0)
 				return 1;
-			if(x+squareX < 1 || x+squareX > 9) return 1;
-			if(y+squareY < 1 || y+squareY > 20) return 1;
+			if(x+squareX < 0 || x+squareX > 10) return 1;
+			if(y+squareY < 0 || y+squareY > 20) return 1;
 		}
 	}
 	return 0;
@@ -103,13 +117,16 @@ struct pair
 //https://tetris.wiki/Super_Rotation_System
 void applyWallkick(struct Piece piece, int* grid, int* x, int* y, int oldRot, int rot)
 {
-	int data[3][5][2] = 
+	int data[4][6][2] = 
 	{
-		{ {}, {}, {}, {}, {} },
+		{ {0, 0}, {1, 0}, {-1, 0}, {1, -1}, {0, 2}, {1, 2} }, // L
+		{ {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0} }, // 0
+		{ {0, 0}, {-1, 0}, {1, 0}, {-1, -1}, {0, 2}, {-1, 2} }, // R
+		{ {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0} }, // 2
 	};
 	oldRot += 1; // offseting because L is technically -1
 	rot += 1;
-	for(int i = 0; i < 5; i++)
+	for(int i = 0; i < 6; i++)
 	{
 		int oX = data[rot][i][0];
 		int oY = data[rot][i][1];
@@ -122,20 +139,64 @@ void applyWallkick(struct Piece piece, int* grid, int* x, int* y, int oldRot, in
 	}
 }
 
+void printToGrid(struct Piece piece, int* grid, int x,  int y)
+{
+
+	int ox = piece.origin%piece.size;
+	int oy = piece.origin/piece.size;
+	x -= ox;
+	y -= oy;
+	for(int i = 0; i < piece.size * piece.size; i++)
+	{
+		int index = y * 10 + x + i%piece.size + i/piece.size;
+		if(1<<i & piece.shape)
+		{
+			int squareX = i%piece.size;
+			int squareY = i/piece.size;
+			grid[x+y*10+squareX + squareY*10] = piece.colorPairIndex;
+				
+		}
+	}
+}
+
+void drawGrid(WINDOW* window, int* grid)
+{
+	for(int i = 0; i < 200; i++)
+	{
+		if(grid[i] != 0)
+		{
+			int x = i%10;
+			int y = i / 10;
+			drawSquare(window, x, y, grid[i]);
+		}
+	}
+}
+
+void setGridSquare(int* grid, int x, int y, int color)
+{
+	grid[x + y*10] = color;
+}
+
 int main()
 {	
 	int rot = 0;
 	struct Piece T;
 	T.shape = 58; // nombre binaire pour représenter la piece
 	T.size = 3;
-	T.colorPairIndex = 4; 
+	T.colorPairIndex = MAGENTA; 
 	T.origin = 4;
-	struct Piece currPiece = T;
+	
+	struct Piece S;
+	S.shape = 51;
+	S.size = 3;
+	S.colorPairIndex = RED;
+	S.origin = 4;
+	struct Piece currPiece = S;
 	int ch;
 	initscr();
 	noecho();
 	WINDOW* win = newwin(0, 0, 0, 0);
-	WINDOW* subWin = subwin(win, 22, 22, 1, 1);
+	WINDOW* subWin = subwin(win, 22, 24, 1, 1);
 	start_color();
 	init_pair(1, COLOR_RED, COLOR_RED);
 	init_pair(2, COLOR_BLUE, COLOR_BLUE);
@@ -149,12 +210,26 @@ int main()
 	int xPos = 5;
 	int yPos = 2;
 	int grid[200] = {0};
+	for(int i = 17; i < 20; i++)
+	{
+		for(int j = 0; j < 10; j++)
+		{
+			setGridSquare(grid, j, i, 1);
+		}
+	}
+/*	setGridSquare(grid, 4, 17, 0);
+	setGridSquare(grid, 4, 18, 0);
+	setGridSquare(grid, 4, 19, 0);
+	setGridSquare(grid, 5, 18, 0);
+	setGridSquare(grid, 3, 16, 1);
+	setGridSquare(grid, 3, 15, 1);
+	setGridSquare(grid, 4, 15, 1);*/
 	while(1)
 	{
 		
 		drawPiece(subWin, xPos, yPos, 0, currPiece, 1);
 		box(subWin, 0, 0);
-		timeout(1);
+		timeout(128);
 		ch = getch();
 		if(ch == 100 && !checkCollision(currPiece, grid, xPos + 1, yPos))
 			xPos++;
@@ -166,7 +241,7 @@ int main()
 		{
 			int shapeBuffer = currPiece.shape;
 			rotateShapeccw(&currPiece.shape, currPiece.size);
-			applyWallkick(currPiece, grid, &xPos, &yPos, rot, rot-1);
+			applyWallkick(currPiece, grid, &xPos, &yPos, -1, -1);
 			if(checkCollision(currPiece, grid, xPos, yPos))
 				currPiece.shape = shapeBuffer;
 			else
@@ -176,7 +251,7 @@ int main()
 		{
 			int shapeBuffer = currPiece.shape;
 			rotateShapecw(&currPiece.shape, currPiece.size);
-			applyWallkick(currPiece, grid, &xPos, &yPos, rot, rot+1);
+			applyWallkick(currPiece, grid, &xPos, &yPos, 1, 1);
 			if(checkCollision(currPiece, grid, xPos, yPos))
 				currPiece.shape = shapeBuffer;
 			else
@@ -185,6 +260,14 @@ int main()
 		if(rot == 3) rot = -1;
 		if(rot == -2) rot = 2;
 
+		/*if(checkCollision(currPiece, grid, xPos, yPos+1))
+		{
+			printToGrid(currPiece, grid, xPos, yPos);
+			xPos = 5;
+			yPos = 2;
+		}*/
+		//else yPos++;
+		drawGrid(subWin, grid);
 		drawPiece(subWin, xPos, yPos, 0, currPiece, 0);
 		wmove(subWin, 1, 1);
 		wrefresh(subWin);
