@@ -1,5 +1,5 @@
 #include <ncurses.h>
-
+//TODO harddrop + randomize bag + hold + preview next pieces
 enum PIECE_ID
 {
 	T,
@@ -18,6 +18,7 @@ enum COLOR_ID
 	GREEN,
 	MAGENTA,
 	YELLOW,
+	CYAN,
 	BLACK,
 	WHITE
 };
@@ -40,6 +41,7 @@ void drawSquare(WINDOW* window, int x, int y, int colorIndex)
 
 void drawPiece(WINDOW* window, int x, int y, int rot, struct Piece piece, int clear) // if clear is 1, black is used to clear the piece
 {
+	int debug = 0;
 	int ox = piece.origin%piece.size;
 	int oy = piece.origin/piece.size;
 	x -= ox;
@@ -48,7 +50,7 @@ void drawPiece(WINDOW* window, int x, int y, int rot, struct Piece piece, int cl
 	{
 		if(1<<i & piece.shape)
 			drawSquare(window, x+i%piece.size, y+i/piece.size, clear ? 7 : piece.colorPairIndex);
-		else
+		else if(debug)
 			drawSquare(window, x+i%piece.size, y+i/piece.size, clear ? 7 : piece.colorPairIndex-1);
 	}
 }
@@ -177,6 +179,45 @@ void setGridSquare(int* grid, int x, int y, int color)
 	grid[x + y*10] = color;
 }
 
+void placePiece(struct Piece* piece, int* grid, int* x, int* y, struct Piece* bag, int* bagIndex)
+{
+
+	printToGrid(*piece, grid, *x, *y);
+	*x = 5;
+	*y = 2;
+	*bagIndex = (*bagIndex+1)%7;
+	*piece = bag[*bagIndex];
+}
+
+void clearLines(WINDOW* window, int* grid)
+{
+	int linesToClear[4] = {18};
+	int clearCount = 0;
+	for(int i = 0; i < 20; i++)
+	{
+		int currLineCount = 0;
+		for(int j = 0; j < 10; j++)
+		{
+			if(grid[i*10+j]!=0)
+				currLineCount++;
+		}
+		if(currLineCount == 10)
+		{
+			linesToClear[clearCount++] = i;
+		}
+	}
+	for(int i = 0; i < 10; i++)
+	{
+		for(int j = 0; j < clearCount; j++)
+		{
+			grid[linesToClear[j]*10+i] = 0;
+			drawSquare(window, i, linesToClear[j], BLACK);
+			wrefresh(window);
+		}
+		napms(40);
+	}
+}
+
 int main()
 {	
 	int rot = 0;
@@ -191,6 +232,37 @@ int main()
 	S.size = 3;
 	S.colorPairIndex = RED;
 	S.origin = 4;
+
+	struct Piece Z;
+	Z.shape = 30;
+	Z.size = 3;
+	Z.colorPairIndex = GREEN;
+	Z.origin = 4;	
+
+	struct Piece J;
+	J.shape = 57;
+	J.size = 3;
+	J.colorPairIndex = WHITE;
+	J.origin = 4;
+
+	struct Piece L;
+	L.shape = 60;
+	L.size = 3;
+	L.colorPairIndex = BLUE;
+	L.origin = 4;
+
+	struct Piece O;
+	O.shape = 15;
+	O.size = 2;
+	O.colorPairIndex = YELLOW;
+	O.origin = 3;
+	
+	struct Piece I;
+	I.shape = 240;
+	I.size = 4;
+	I.colorPairIndex = CYAN;
+	I.origin = 5;
+
 	struct Piece currPiece = S;
 	int ch;
 	initscr();
@@ -205,11 +277,14 @@ int main()
 	init_pair(5, COLOR_YELLOW, COLOR_YELLOW);
 	init_pair(6, COLOR_CYAN, COLOR_CYAN);
 	init_pair(7, COLOR_BLACK, COLOR_BLACK);
+	init_pair(8, COLOR_WHITE, COLOR_WHITE);
 	refresh();
 	int i = 0;
 	int xPos = 5;
 	int yPos = 2;
 	int grid[200] = {0};
+	struct Piece bag[7] = {T, J, L, S, Z, I, O};
+	int bagIndex = 0;
 	for(int i = 17; i < 20; i++)
 	{
 		for(int j = 0; j < 10; j++)
@@ -235,8 +310,15 @@ int main()
 			xPos++;
 		else if(ch == 113 && !checkCollision(currPiece, grid, xPos -1, yPos))
 			xPos--;
-		else if(ch == 115 && !checkCollision(currPiece, grid, xPos, yPos+1))
-			yPos++;
+		else if(ch == 115) 
+		{
+			if(checkCollision(currPiece, grid, xPos, yPos+1))
+			{
+				placePiece(&currPiece, grid, &xPos, &yPos, bag, &bagIndex);
+				clearLines(subWin, grid);
+			}
+			else yPos++;
+		}
 		else if(ch == 108)
 		{
 			int shapeBuffer = currPiece.shape;
@@ -262,9 +344,7 @@ int main()
 
 		/*if(checkCollision(currPiece, grid, xPos, yPos+1))
 		{
-			printToGrid(currPiece, grid, xPos, yPos);
-			xPos = 5;
-			yPos = 2;
+			placePiece(currPiece, grid, xPos, yPos);
 		}*/
 		//else yPos++;
 		drawGrid(subWin, grid);
