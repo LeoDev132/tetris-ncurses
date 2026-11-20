@@ -103,7 +103,7 @@ int checkCollision(struct Piece piece, int* grid, int x, int y)
 			int squareY = i/piece.size;
 			if(grid[x+y*10+squareX + squareY*10] != 0)
 				return 1;
-			if(x+squareX < 0 || x+squareX > 10) return 1;
+			if(x+squareX < 0 || x+squareX > 9) return 1;
 			if(y+squareY < 0 || y+squareY > 20) return 1;
 		}
 	}
@@ -189,6 +189,17 @@ void placePiece(struct Piece* piece, int* grid, int* x, int* y, struct Piece* ba
 	*piece = bag[*bagIndex];
 }
 
+void clearBoard(WINDOW* window)
+{
+	for(int i = 0; i < 20; i++)
+	{
+		for(int j = 0; j < 10; j++)
+		{
+			drawSquare(window, j, i, BLACK);
+		}
+	}
+}
+
 void clearLines(WINDOW* window, int* grid)
 {
 	int linesToClear[4] = {18};
@@ -215,6 +226,20 @@ void clearLines(WINDOW* window, int* grid)
 			wrefresh(window);
 		}
 		napms(40);
+	}
+	clearBoard(window);
+	for(int l = 0; l < clearCount; l++)
+	{
+		int y = linesToClear[l];
+		for(int i = y; i > 0; i--)
+		{
+			for(int j = 0; j < 10; j++)
+				grid[i*10+j] = grid[(i-1)*10+j];
+		}
+
+
+
+
 	}
 }
 
@@ -285,20 +310,21 @@ int main()
 	int grid[200] = {0};
 	struct Piece bag[7] = {T, J, L, S, Z, I, O};
 	int bagIndex = 0;
-	for(int i = 17; i < 20; i++)
+	/*for(int i = 17; i < 20; i++)
 	{
 		for(int j = 0; j < 10; j++)
 		{
 			setGridSquare(grid, j, i, 1);
 		}
 	}
-/*	setGridSquare(grid, 4, 17, 0);
+	setGridSquare(grid, 4, 17, 0);
 	setGridSquare(grid, 4, 18, 0);
 	setGridSquare(grid, 4, 19, 0);
 	setGridSquare(grid, 5, 18, 0);
 	setGridSquare(grid, 3, 16, 1);
 	setGridSquare(grid, 3, 15, 1);
 	setGridSquare(grid, 4, 15, 1);*/
+	currPiece = T;
 	while(1)
 	{
 		
@@ -341,12 +367,13 @@ int main()
 		}
 		if(rot == 3) rot = -1;
 		if(rot == -2) rot = 2;
-
+	
 		/*if(checkCollision(currPiece, grid, xPos, yPos+1))
 		{
-			placePiece(currPiece, grid, xPos, yPos);
-		}*/
-		//else yPos++;
+			placePiece(&currPiece, grid, &xPos, &yPos, bag, &bagIndex);
+			clearLines(subWin, grid);
+		}
+		else yPos++;*/
 		drawGrid(subWin, grid);
 		drawPiece(subWin, xPos, yPos, 0, currPiece, 0);
 		wmove(subWin, 1, 1);
